@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hazard ID Agent</title>
+<script src="/static/vendor/marked.min.js"></script>
+<script src="/static/vendor/purify.min.js"></script>
+<style>
+  :root{
+    --bg:#f5f6f4; --panel:#ffffff; --ink:#1d2421; --muted:#5d6b64; --line:#dde2de;
+    --accent:#1f6f54; --accent-ink:#ffffff; --warn-bg:#fff6e0; --warn-ink:#7a5300;
+    --err-bg:#fdecec; --err-ink:#8a1c1c; --t1:#1f6f54; --t2:#3b5ea8; --t3:#8a6d1f;
+  }
+  @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+    --bg:#121614; --panel:#1b201e; --ink:#e6ebe8; --muted:#9aa8a1; --line:#2d3531;
+    --accent:#4fb38c; --accent-ink:#0d1411; --warn-bg:#3a2f12; --warn-ink:#f3d58a;
+    --err-bg:#3d1b1b; --err-ink:#f5b1b1; --t1:#5fc49b; --t2:#8aa9ee; --t3:#d8b75c; } }
+  :root[data-theme="dark"]{
+    --bg:#121614; --panel:#1b201e; --ink:#e6ebe8; --muted:#9aa8a1; --line:#2d3531;
+    --accent:#4fb38c; --accent-ink:#0d1411; --warn-bg:#3a2f12; --warn-ink:#f3d58a;
+    --err-bg:#3d1b1b; --err-ink:#f5b1b1; --t1:#5fc49b; --t2:#8aa9ee; --t3:#d8b75c; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  header{border-bottom:1px solid var(--line);background:var(--panel)}
+  .wrap{max-width:1100px;margin:0 auto;padding:0 16px}
+  header .wrap{display:flex;align-items:center;gap:12px;padding-top:14px;padding-bottom:14px}
+  header h1{font-size:18px;margin:0;font-weight:650;letter-spacing:.2px}
+  header .sub{color:var(--muted);font-size:13px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px;margin:18px 0}
+  form{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+  label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+  input{font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);min-width:0}
+  #cas{width:220px;font-family:ui-monospace,Consolas,monospace}
+  button{font:inherit;font-weight:600;padding:10px 16px;border-radius:8px;border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);cursor:pointer}
+  button.ghost{background:transparent;color:var(--accent)}
+  button:disabled{opacity:.5;cursor:default}
+  .examples{font-size:13px;color:var(--muted);margin-top:10px}
+  .examples a{color:var(--accent);cursor:pointer;margin-right:10px}
+  .banner{padding:10px 14px;border-radius:8px;margin:12px 0;font-size:14px}
+  .warn{background:var(--warn-bg);color:var(--warn-ink)} .err{background:var(--err-bg);color:var(--err-ink)}
+  .status{color:var(--muted);font-size:14px;display:flex;align-items:center;gap:8px}
+  .spin{width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:s 1s linear infinite}
+  @keyframes s{to{transform:rotate(360deg)}}
+  .chem{display:flex;flex-wrap:wrap;gap:6px 22px;align-items:baseline}
+  .chem h2{margin:0;font-size:20px}
+  .chem span{color:var(--muted);font-size:14px}
+  .chem a{color:var(--accent)}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:14px}
+  .stat{border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+  .stat b{display:block;font-size:18px} .stat small{color:var(--muted)}
+  .tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:14px;flex-wrap:wrap}
+  .tab{background:none;border:none;color:var(--muted);padding:8px 12px;border-bottom:2px solid transparent;border-radius:0}
+  .tab.on{color:var(--ink);border-bottom-color:var(--accent)}
+  .actions{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+  .md{overflow-wrap:anywhere}
+  .md h1{font-size:22px;margin-top:0} .md h2{font-size:18px;margin-top:28px;border-bottom:1px solid var(--line);padding-bottom:4px} .md h3{font-size:15.5px;margin-top:20px}
+  .md table, table.data{border-collapse:collapse;width:100%;font-size:13px;margin:10px 0;display:block;overflow-x:auto}
+  .md th,.md td,table.data th,table.data td{border:1px solid var(--line);padding:5px 7px;text-align:left;vertical-align:top}
+  .md th,table.data th{background:var(--bg)}
+  .md a,table.data a{color:var(--accent)}
+  .tier{display:inline-block;font-size:11px;font-weight:700;padding:1px 6px;border-radius:10px;border:1px solid}
+  .t1{color:var(--t1)} .t2{color:var(--t2)} .t3{color:var(--t3)}
+  pre{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:12px;overflow:auto;font-size:12px;max-height:600px}
+  .hidden{display:none}
+  footer{color:var(--muted);font-size:12px;padding:20px 16px 40px;text-align:center}
+  @media print{ header,.card.search,.tabs,.actions,footer,.stats{display:none!important} .card{border:none;padding:0} body{background:#fff;color:#000} }
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <div><h1>Hazard Identification Agent</h1>
+  <div class="sub">EPA CompTox Chemicals Dashboard data → cancer and non-cancer hazard identification summary</div></div>
+</div></header>
+
+<main class="wrap">
+  <div id="cfgBanner"></div>
+
+  <section class="card search">
+    <form id="f">
+      <div><label for="cas">CAS Registry Number</label><input id="cas" placeholder="e.g. 71-43-2" autocomplete="off" required></div>
+      <div id="pwWrap" class="hidden"><label for="pw">Access password</label><input id="pw" type="password"></div>
+      <button id="go" type="submit">Generate summary</button>
+    </form>
+    <div class="examples">Try: <a data-cas="71-43-2">Benzene</a><a data-cas="50-00-0">Formaldehyde</a><a data-cas="108-88-3">Toluene</a><a data-cas="80-05-7">Bisphenol A</a></div>
+    <div id="status" class="status hidden"><div class="spin"></div><span id="statusText"></span></div>
+    <div id="error" class="banner err hidden"></div>
+  </section>
+
+  <section id="result" class="card hidden">
+    <div class="chem" id="chem"></div>
+    <div class="stats" id="stats"></div>
+  </section>
+
+  <section id="out" class="card hidden">
+    <div class="tabs">
+      <button class="tab on" data-tab="summary">Summary</button>
+      <button class="tab" data-tab="data">Data used</button>
+      <button class="tab" data-tab="json">Evidence package</button>
+    </div>
+    <div id="tab-summary">
+      <div class="actions">
+        <button id="dlDocx">Download Word</button>
+        <button class="ghost" id="dlMd">Download Markdown</button>
+        <button class="ghost" id="print">Print / Save as PDF</button>
+        <button class="ghost" id="copy">Copy text</button>
+      </div>
+      <div id="truncWarn" class="banner warn hidden">The summary hit the output length limit and may be cut off. Raise MAX_OUTPUT_TOKENS in your settings.</div>
+      <div class="md" id="md"></div>
+    </div>
+    <div id="tab-data" class="hidden">
+      <p class="sub" style="color:var(--muted);font-size:13px">Every reference ID cited in the summary (e.g. TV-123) appears here. <span class="tier t1">Tier 1</span> EPA peer-reviewed (IRIS/PPRTV) · <span class="tier t2">Tier 2</span> other EPA program / government body · <span class="tier t3">Tier 3</span> study-level or screening data.</p>
+      <div id="dataTable"></div>
+    </div>
+    <div id="tab-json" class="hidden">
+      <div class="actions"><button class="ghost" id="dlJson">Download JSON</button></div>
+      <pre id="json"></pre>
+    </div>
+  </section>
+</main>
+<footer>Draft output for screening and scoping. Not an EPA assessment. Verify all values against original sources.</footer>
+
+<script>
+const $ = s => document.querySelector(s);
+let last = null, timer = null;
+
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+fetch("/api/config").then(r => r.json()).then(c => {
+  if (c.password_required) $("#pwWrap").classList.remove("hidden");
+  const b = [];
+  if (c.mock_mode) b.push("Demo mode is on: results use built-in sample data, not live EPA data.");
+  else {
+    if (!c.ctx_key_set) b.push("CTX_API_KEY is not set, so EPA data cannot be retrieved.");
+    if (!c.anthropic_key_set) b.push("ANTHROPIC_API_KEY is not set, so summaries cannot be written.");
+  }
+  $("#cfgBanner").innerHTML = b.map(t => `<div class="banner warn">${esc(t)}</div>`).join("");
+  try { const pw = sessionStorage.getItem("hazid_pw"); if (pw) $("#pw").value = pw; } catch(e) {}
+});
+
+document.querySelectorAll(".examples a").forEach(a => a.onclick = () => { $("#cas").value = a.dataset.cas; });
+
+document.querySelectorAll(".tab").forEach(t => t.onclick = () => {
+  document.querySelectorAll(".tab").forEach(x => x.classList.toggle("on", x === t));
+  ["summary","data","json"].forEach(n => $("#tab-"+n).classList.toggle("hidden", n !== t.dataset.tab));
+});
+
+function setStatus(on, text) {
+  $("#status").classList.toggle("hidden", !on);
+  clearInterval(timer);
+  if (on) {
+    const t0 = Date.now();
+    const tick = () => {
+      const s = Math.round((Date.now() - t0) / 1000);
+      const phase = s < 8 ? "Retrieving EPA CompTox data…" : "Writing the hazard identification summary…";
+      $("#statusText").textContent = `${text || phase} (${s}s — usually 30–90s)`;
+    };
+    tick(); timer = setInterval(tick, 1000);
+  }
+}
+
+$("#f").onsubmit = async e => {
+  e.preventDefault();
+  const cas = $("#cas").value.trim();
+  $("#error").classList.add("hidden");
+  $("#go").disabled = true; setStatus(true);
+  try { sessionStorage.setItem("hazid_pw", $("#pw").value); } catch(e) {}
+  try {
+    const r = await fetch("/api/summary", {
+      method: "POST",
+      headers: {"Content-Type": "application/json", "X-App-Password": $("#pw").value},
+      body: JSON.stringify({cas})
+    });
+    let d;
+    try { d = await r.json(); } catch(_) { throw new Error(`Server error (HTTP ${r.status}). Check the server log.`); }
+    if (!r.ok) throw new Error(d.error || `HTTP ${r.status}`);
+    last = d; render(d);
+  } catch (err) {
+    $("#error").textContent = err.message; $("#error").classList.remove("hidden");
+  } finally { $("#go").disabled = false; setStatus(false); }
+};
+
+function render(d) {
+  const c = d.chemical, cov = d.coverage;
+  $("#chem").innerHTML = `<h2>${esc(c.preferredName || "Unknown")}</h2>
+    <span>CAS ${esc(c.casrn)}</span><span>${esc(c.dtxsid)}</span>
+    <span><a href="${esc(c.dashboardUrl)}" target="_blank" rel="noopener">Open in CompTox Dashboard ↗</a></span>
+    <span>Retrieved ${esc(d.retrieved_on)} · ${esc(d.model)}</span>`;
+  const st = [
+    ["IRIS assessment", cov.has_iris ? "Yes" : "No"], ["PPRTV assessment", cov.has_pprtv ? "Yes" : "No"],
+    ["Cancer classifications", cov.cancer_classification_records], ["Genotox assays", cov.genetox_detail_records],
+    ["Non-cancer tox values", cov.noncancer_toxicity_values], ["Non-cancer PODs", cov.noncancer_pod_records],
+    ["ToxValDB records", cov.toxval_records_total]
+  ];
+  $("#stats").innerHTML = st.map(([k,v]) => `<div class="stat"><b>${esc(v)}</b><small>${esc(k)}</small></div>`).join("");
+  if (cov.api_errors && Object.keys(cov.api_errors).length)
+    $("#stats").insertAdjacentHTML("afterend", `<div class="banner warn">Some EPA data domains could not be retrieved: ${esc(Object.keys(cov.api_errors).join(", "))}.</div>`);
+
+  const html = DOMPurify.sanitize(marked.parse(d.summary_markdown || ""));
+  $("#md").innerHTML = html;
+  $("#truncWarn").classList.toggle("hidden", !d.truncated);
+
+  const rows = d.sources || [];
+  $("#dataTable").innerHTML = rows.length ? `<table class="data"><thead><tr>
+    <th>Ref</th><th>Tier</th><th>Source</th><th>Type</th><th>Value</th><th>Units</th><th>Class</th><th>Route</th><th>Species</th><th>Effect</th></tr></thead><tbody>` +
+    rows.map(s => `<tr id="ref-${esc(s.ref)}"><td>${s.url ? `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.ref)}</a>` : esc(s.ref)}</td>
+      <td><span class="tier t${esc(s.tier)}">T${esc(s.tier)}</span></td><td>${esc(s.source)}</td><td>${esc(s.type)}</td>
+      <td>${esc((s.qualifier && s.qualifier !== "=" ? s.qualifier + " " : "") + (s.value ?? ""))}</td><td>${esc(s.units)}</td>
+      <td>${esc(s.riskClass)}</td><td>${esc(s.route)}</td><td>${esc(s.species)}</td><td>${esc(s.effect)}</td></tr>`).join("") +
+    `</tbody></table>` : "<p>No records.</p>";
+
+  $("#json").textContent = JSON.stringify(d.evidence_package, null, 2);
+  $("#result").classList.remove("hidden"); $("#out").classList.remove("hidden");
+  $("#result").scrollIntoView({behavior: "smooth"});
+}
+
+const fname = () => `HazardID_${(last.chemical.casrn || "").replace(/[^0-9-]/g,"")}_${last.retrieved_on}`;
+function download(blob, name) { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); }
+
+$("#dlMd").onclick = () => download(new Blob([last.summary_markdown], {type: "text/markdown"}), fname() + ".md");
+$("#dlJson").onclick = () => download(new Blob([JSON.stringify(last, null, 2)], {type: "application/json"}), fname() + ".json");
+$("#print").onclick = () => window.print();
+$("#copy").onclick = async () => { try { await navigator.clipboard.writeText(last.summary_markdown); $("#copy").textContent = "Copied"; setTimeout(() => $("#copy").textContent = "Copy text", 1500); } catch(e) {} };
+$("#dlDocx").onclick = async () => {
+  const r = await fetch("/api/export/docx", {method: "POST", headers: {"Content-Type": "application/json", "X-App-Password": $("#pw").value},
+    body: JSON.stringify({markdown: last.summary_markdown, filename: fname()})});
+  if (r.ok) download(await r.blob(), fname() + ".docx");
+};
+</script>
+</body>
+</html>
